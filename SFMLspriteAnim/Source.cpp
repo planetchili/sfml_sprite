@@ -2,6 +2,47 @@
 #include <SFML/Graphics.hpp>
 #include <chrono>
 #include <vector>
+#include <memory>
+#include <unordered_map>
+#include <string>
+
+class TextureCodex
+{
+public:
+	static std::shared_ptr<sf::Texture> Acquire( const std::string& name )
+	{
+		const auto i = texturePtrs.find( name );
+		if( i != texturePtrs.end() )
+		{
+			return i->second;
+		}
+		else
+		{
+			auto pTex = std::make_shared<sf::Texture>();
+			pTex->loadFromFile( name );
+			texturePtrs.insert( { name,pTex } );
+			return pTex;
+		}
+	}
+	static void MurderOrphans()
+	{
+		for( auto i = texturePtrs.begin(); i != texturePtrs.end(); )
+		{
+			if( i->second.unique() )
+			{
+				i = texturePtrs.erase( i );
+			}
+			else
+			{
+				++i;
+			}
+		}
+	}
+private:
+	static std::unordered_map<std::string,std::shared_ptr<sf::Texture>> texturePtrs;
+};
+
+std::unordered_map<std::string,std::shared_ptr<sf::Texture>> TextureCodex::texturePtrs;
 
 class Animation
 {
@@ -12,7 +53,7 @@ public:
 		holdTime( holdTime )
 	{
 		frames.reserve( nFrames );
-		texture.loadFromFile( "professor_walk_cycle_no_hat.png" );
+		pTex = TextureCodex::Acquire( "professor_walk_cycle_no_hat.png" );
 		for( int i = 0; i < nFrames; i++ )
 		{
 			frames.emplace_back( sf::Vector2i{ x,y },sf::Vector2i{ width,height } );
@@ -21,7 +62,7 @@ public:
 	}
 	void ApplyToSprite( sf::Sprite& s ) const
 	{
-		s.setTexture( texture );
+		s.setTexture( *pTex );
 		s.setTextureRect( frames[iFrame] );
 	}
 	void Update( float dt )
@@ -43,7 +84,7 @@ private:
 	}
 private:
 	float holdTime;
-	sf::Texture texture;
+	std::shared_ptr<sf::Texture> pTex;
 	std::vector<sf::IntRect> frames;
 	int iFrame = 0;
 	float time = 0.0f;
@@ -141,6 +182,13 @@ int main()
 {
 	// Create the main window
 	sf::RenderWindow window( sf::VideoMode( 800,600 ),"SFML window" );
+
+	{
+		Character fucker( { 100.0f,100.0f } );
+		Character fucker2( { 100.0f,200.0f } );
+	}
+
+	TextureCodex::MurderOrphans();
 
 	Character fucker( { 100.0f,100.0f } );
 
