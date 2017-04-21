@@ -1,17 +1,22 @@
 #include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include <chrono>
+#include <vector>
 
 class Animation
 {
 public:
 	Animation() = default;
-	Animation( int x,int y,int width,int height )
+	Animation( int x,int y,int width,int height,int nFrames,float holdTime )
+		:
+		holdTime( holdTime )
 	{
+		frames.reserve( nFrames );
 		texture.loadFromFile( "professor_walk_cycle_no_hat.png" );
 		for( int i = 0; i < nFrames; i++ )
 		{
-			frames[i] = { x + i * width,y,width,height };
+			frames.emplace_back( sf::Vector2i{ x,y },sf::Vector2i{ width,height } );
+			x += width;
 		}
 	}
 	void ApplyToSprite( sf::Sprite& s ) const
@@ -31,16 +36,15 @@ public:
 private:
 	void Advance()
 	{
-		if( ++iFrame >= nFrames )
+		if( ++iFrame >= int( frames.size() ) )
 		{
 			iFrame = 0;
 		}
 	}
 private:
-	static constexpr int nFrames = 8;
-	static constexpr float holdTime = 0.1f;
+	float holdTime;
 	sf::Texture texture;
-	sf::IntRect frames[nFrames];
+	std::vector<sf::IntRect> frames;
 	int iFrame = 0;
 	float time = 0.0f;
 };
@@ -54,6 +58,10 @@ private:
 		WalkingDown,
 		WalkingLeft,
 		WalkingRight,
+		StandingUp,
+		StandingDown,
+		StandingLeft,
+		StandingRight,
 		Count
 	};
 public:
@@ -61,11 +69,14 @@ public:
 		:
 		pos( pos )
 	{
-		sprite.setTextureRect( { 0,0,64,64 } );
-		animations[int( AnimationIndex::WalkingUp )] = Animation( 64,0,64,64 );
-		animations[int( AnimationIndex::WalkingDown )] = Animation( 64,128,64,64 );
-		animations[int( AnimationIndex::WalkingLeft )] = Animation( 64,64,64,64 );
-		animations[int( AnimationIndex::WalkingRight )] = Animation( 64,192,64,64 );
+		animations[(int)AnimationIndex::WalkingUp] = Animation( 64,0,64,64,8,0.1f );
+		animations[(int)AnimationIndex::WalkingLeft] = Animation( 64,64,64,64,8,0.1f );
+		animations[(int)AnimationIndex::WalkingDown] = Animation( 64,128,64,64,8,0.1f );
+		animations[(int)AnimationIndex::WalkingRight] = Animation( 64,192,64,64,8,0.1f );
+		animations[(int)AnimationIndex::StandingUp] = Animation( 0,0,64,64,1,10.1f );
+		animations[(int)AnimationIndex::StandingLeft] = Animation( 0,64,64,64,1,10.1f );
+		animations[(int)AnimationIndex::StandingDown] = Animation( 0,128,64,64,1,10.1f );
+		animations[(int)AnimationIndex::StandingRight] = Animation( 0,192,64,64,1,10.1f );
 	}
 	void Draw( sf::RenderTarget& rt ) const
 	{
@@ -73,7 +84,6 @@ public:
 	}
 	void SetDirection( const sf::Vector2f& dir )
 	{
-		vel = dir * speed;
 		if( dir.x > 0.0f )
 		{
 			curAnimation = AnimationIndex::WalkingRight;
@@ -90,6 +100,26 @@ public:
 		{
 			curAnimation = AnimationIndex::WalkingDown;
 		}
+		else
+		{
+			if( vel.x > 0.0f )
+			{
+				curAnimation = AnimationIndex::StandingRight;
+			}
+			else if( vel.x < 0.0f )
+			{
+				curAnimation = AnimationIndex::StandingLeft;
+			}
+			else if( vel.y < 0.0f )
+			{
+				curAnimation = AnimationIndex::StandingUp;
+			}
+			else if( vel.y > 0.0f )
+			{
+				curAnimation = AnimationIndex::StandingDown;
+			}
+		}
+		vel = dir * speed;
 	}
 	void Update( float dt )
 	{
@@ -104,7 +134,7 @@ private:
 	sf::Vector2f vel = {0.0f,0.0f};
 	sf::Sprite sprite;
 	Animation animations[int( AnimationIndex::Count )];
-	AnimationIndex curAnimation = AnimationIndex::WalkingDown;
+	AnimationIndex curAnimation = AnimationIndex::StandingDown;
 };
 
 int main()
